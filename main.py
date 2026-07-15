@@ -70,7 +70,7 @@ with tab1:
 
     st.markdown("---")
     
-    # ② 대한민국 지도 산점도 (건수 기반 원 크기 조절 제공)
+    # ② 대한민국 지도 산점도
     st.subheader("② 1년간 화재 발생 지역 대한민국 지도 (산점도)")
     region_summary = data['시도'].value_counts().reset_index()
     region_summary.columns = ['시도', '화재건수']
@@ -88,7 +88,6 @@ with tab1:
     
     # ③ 지역별 화재 발생 지역 (선그래프)
     st.subheader("③ 1년간 화재 발생 지역 (선그래프)")
-    # 인덱스를 '시도'로 설정해 축 이름을 명확히 지정
     st.line_chart(region_summary.set_index('시도')[['화재건수']])
 
 
@@ -108,7 +107,7 @@ with tab2:
     
     # ② 발화 요인 소분류 열람
     st.subheader("② 발화 요인 소분류 세부 열람 테이블")
-    st.markdown("대분류와 매핑되는 소분류의 세부 발생 건수 테이블입니다. 표 우측 상단 단추로 정렬이 가능합니다.")
+    st.markdown("대분류와 매핑되는 소분류의 세부 발생 건수 테이블입니다. 표 우측 상단 단추로 검색 및 정렬이 가능합니다.")
     cause_detail = data.groupby(['발화요인대분류', '발화요인소분류']).size().reset_index(name='발생건수')
     st.dataframe(cause_detail, use_container_width=True)
 
@@ -119,21 +118,31 @@ with tab2:
 with tab3:
     st.header("⚙️ 차량 상태 및 발화 지점 관계 현황")
     
-    # ① 차량 상태별 시각화 
-    st.subheader("① 차량 상태별 분포")
+    # ① 차량 상태별 시각화 (진행바 형태 적용)
+    st.subheader("① 차량 상태별 분포 (진행바 형태)")
     status_counts = data['차량상태'].value_counts().reset_index()
     status_counts.columns = ['차량상태', '화재건수']
     
-    # 주의: 순수 Streamlit과 Pandas 환경에서 st.pyplot이나 외부 차트 라이브러리(Matplotlib 등)를
-    # 완벽히 배제하기 위해, 원그래프(Pie chart) 대안으로 가장 깔끔한 데이터프레임 도넛차트 형태의 
-    # st.dataframe 프로그레스 바 표현식 또는 st.bar_chart를 권장하나, 
-    # 요구사항을 직관적으로 수용하도록 정량적 수치 표와 누적 비중을 함께 제공합니다.
-    st.write("차량 상태별 비율 분배 테이블:")
+    # 각 상태가 차지하는 백분율(%) 계산 (0.0~100.0)
     status_counts['비율(%)'] = (status_counts['화재건수'] / status_counts['화재건수'].sum() * 100).round(1)
-    st.dataframe(status_counts.set_index('차량상태'), use_container_width=True)
     
-    # 대안 막대그래프도 시각적 보완용으로 배치
-    st.bar_chart(status_counts.set_index('차량상태')[['화재건수']])
+    # st.dataframe의 column_config를 활용하여 '비율(%)' 컬럼을 진행바로 시각화
+    st.dataframe(
+        status_counts,
+        column_config={
+            "차량상태": "차량 상태",
+            "화재건수": "화재 건수 (건)",
+            "비율(%)": st.column_config.ProgressColumn(
+                "발생 비율 (%)",
+                help="전체 화재 건수 대비 비율",
+                format="%.1f%%",
+                min_value=0,
+                max_value=100
+            )
+        },
+        use_container_width=True,
+        hide_index=True
+    )
     
     st.markdown("---")
     
@@ -142,8 +151,3 @@ with tab3:
     point_counts = data['차량발화지점'].value_counts().reset_index()
     point_counts.columns = ['차량발화지점', '화재건수']
     st.bar_chart(point_counts.set_index('차량발화지점'))
-    
-    # 💡 [보너스 분석 섹션] 차량 상태와 발화 지점 간의 교차 테이블
-    with st.expander("🔍 [상세 분석] 차량 상태 X 차량 발화지점의 상관관계 행렬 보기"):
-        cross_tab = pd.crosstab(data['차량상태'], data['차량발화지점'])
-        st.dataframe(cross_tab, use_container_width=True)
